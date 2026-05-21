@@ -875,10 +875,7 @@ const TERCEIRO=[{id:'3p',fase:'3º Lugar',slot1:'Perd. SF1',slot2:'Perd. SF2',dt
 const FINAL=[{id:'fin',fase:'Final',slot1:'Venc. SF1',slot2:'Venc. SF2',dt:new Date('2026-07-19T23:00Z'),local:'MetLife/NJ 🏆'}];
 
 const TODOS_JOGOS=[...JOGOS,...DEZESSEIS,...OITAVAS,...QUARTAS,...SEMIS,...TERCEIRO,...FINAL];
-const RES={
-  // Mock: Brasil 4×1 Marrocos (demonstração — será substituído por dados reais)
-  'g07':{g1:4,g2:1}
-};
+const RES={};
 
 // Grupos e times
 const GRUPOS={
@@ -902,7 +899,7 @@ function brtHour(d){const b=brtOf(d);return String(b.h).padStart(2,'0')+':'+Stri
 function brtDateStr(d){const b=brtOf(d);const m=['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][b.mo];return b.d+' '+m;}
 
 function jFinal(j){return !!RES[j.id];}
-function jAberto(j){return !RES[j.id]&&new Date()<new Date(j.dt.getTime()-24*3600*1000);}
+function jAberto(j){return !RES[j.id]&&new Date()<new Date(j.dt.getTime()-30*60*1000);}
 function ehBR(j){return j.t1==='Brasil'||j.t2==='Brasil';}
 function isElim(j){return j.fase!=='Grupos';}
 
@@ -1333,8 +1330,12 @@ function step(id,w,d){
 function salvarPal(id,btn){
   if(!currentUser){showToast('Selecione seu nome primeiro!');return;}
   if(!palpites[id])palpites[id]={g1:0,g2:0,saved:false};
-  palpites[id].saved=true;if(btn){btn.className='svbtn saved';btn.textContent='✓ Salvo';}
-  showToast('Palpite '+palpites[id].g1+'×'+palpites[id].g2+' salvo! ✓');renderHeaderStats();
+  palpites[id].saved=true;
+  if(btn){btn.className='svbtn saved';btn.textContent='✓ Salvo';}
+  showToast('Palpite '+palpites[id].g1+'×'+palpites[id].g2+' salvo! ✓');
+  renderHeaderStats();
+  // Update pending banner count after saving
+  if(viewMode==='date') updatePartidaControls();
 }
 
 // ── TABELA & GRUPOS ──
@@ -1752,7 +1753,14 @@ function renderBonus(){
   const frag=document.createDocumentFragment();
   const acc5=document.createElement('div');acc5.className='page-accent';frag.appendChild(acc5);
   const bhdr=document.createElement('div');bhdr.className='bhdr-full';
-  bhdr.innerHTML='<div><div class="btitle">⭐ Palpites Bônus</div><div class="bsub">Palpite antes de 11/06 e ganhe pontos extras</div></div><div class="bdead"><div class="bdead-n">'+Math.max(0,Math.ceil((new Date('2026-06-11T19:00Z')-new Date())/86400000))+'</div><div class="bdead-l">dias restantes</div></div>';
+  const _bdiff=new Date('2026-06-11T18:00Z')-new Date();
+  const _bdd=Math.floor(_bdiff/86400000),_bh=Math.floor((_bdiff%86400000)/3600000),_bm=Math.floor((_bdiff%3600000)/60000);
+  let _bcount='';
+  if(_bdiff<=0){_bcount='<div class="bdead-n" style="color:var(--red);">✕</div><div class="bdead-l">encerrado</div>';}
+  else if(_bdd>0){_bcount='<div class="bdead-n">'+_bdd+'d '+String(_bh).padStart(2,'0')+'h</div><div class="bdead-l">p/ fechar bônus</div>';}
+  else if(_bh>0){_bcount='<div class="bdead-n" style="color:var(--red);">'+String(_bh).padStart(2,'0')+'h '+String(_bm).padStart(2,'0')+'m</div><div class="bdead-l">p/ fechar bônus</div>';}
+  else{_bcount='<div class="bdead-n" style="color:var(--red);">'+String(_bm).padStart(2,'0')+'m</div><div class="bdead-l">último minuto!</div>';}
+  bhdr.innerHTML='<div><div class="btitle">⭐ Palpites Bônus</div><div class="bsub">Palpite antes de 11/Jun 15h e ganhe pontos extras</div></div><div class="bdead">'+_bcount+'</div>';
   frag.appendChild(bhdr);
   const al=document.createElement('div');al.style.cssText='background:rgba(245,197,24,0.07);border:0.5px solid rgba(245,197,24,0.22);border-radius:var(--rs);padding:10px 14px;font-size:12px;color:rgba(245,197,24,0.75);margin-bottom:16px;';al.innerHTML='⚠️ Estes palpites fecham quando a Copa começar. Não podem ser alterados!';frag.appendChild(al);
   const grid=document.createElement('div');grid.className='bonus-layout';
@@ -1767,7 +1775,7 @@ function renderBonus(){
       else{inp.type='text';inp.className='btext';inp.id='bs-'+tipo;inp.placeholder=cfg.placeholder||'';}
       card.appendChild(inp);
       const btn=document.createElement('button');btn.className='bselbtn';btn.textContent='Confirmar palpite';
-      btn.onclick=()=>{if(!currentUser){showToast('Entre primeiro!');openUserSelect();return;}const el=document.getElementById('bs-'+tipo);const v=el?el.value.trim():'';if(!v){showToast('Preencha o campo!');return;}palpitesBonus[tipo]=v;showToast('Bônus salvo! ⭐');renderBonus();};
+      btn.onclick=()=>{if(!currentUser){showToast('Entre primeiro!');openUserSelect();return;}if(new Date()>=new Date('2026-06-11T18:00Z')){showToast('⏱️ Prazo encerrado! Bônus fecharam em 11/Jun às 15h');return;}const el=document.getElementById('bs-'+tipo);const v=el?el.value.trim():'';if(!v){showToast('Preencha o campo!');return;}palpitesBonus[tipo]=v;showToast('Bônus salvo! ⭐');renderBonus();};
       card.appendChild(btn);
     }
     grid.appendChild(card);
@@ -1812,54 +1820,10 @@ function salvarResultado(){
   setTimeout(()=>renderAdmin(),120);
 }
 
-// ── MOCK DATA ──
-const MOCK_TOPSCORERS=[
-  {nome:'Kylian Mbappé',selecao:'França',iso:'fr',gols:5,assist:3,amarelos:1,vermelhos:0},
-  {nome:'Vini Jr.',selecao:'Brasil',iso:'br',gols:4,assist:4,amarelos:0,vermelhos:0},
-  {nome:'Lautaro Martínez',selecao:'Argentina',iso:'ar',gols:4,assist:1,amarelos:2,vermelhos:0},
-  {nome:'Harry Kane',selecao:'Inglaterra',iso:'gb-eng',gols:3,assist:2,amarelos:1,vermelhos:0},
-  {nome:'Rafael Leão',selecao:'Portugal',iso:'pt',gols:3,assist:1,amarelos:0,vermelhos:0},
-  {nome:'Erling Haaland',selecao:'Noruega',iso:'no',gols:3,assist:0,amarelos:1,vermelhos:0},
-  {nome:'Mohamed Salah',selecao:'Egito',iso:'eg',gols:2,assist:3,amarelos:0,vermelhos:0},
-  {nome:'Bukayo Saka',selecao:'Inglaterra',iso:'gb-eng',gols:2,assist:2,amarelos:0,vermelhos:0},
-];
-const MOCK_CARDS=[
-  {nome:'Sofyan Amrabat',selecao:'Marrocos',iso:'ma',amarelos:3,vermelhos:0},
-  {nome:'Rodrigo Bentancur',selecao:'Uruguai',iso:'uy',amarelos:2,vermelhos:1},
-  {nome:'Granit Xhaka',selecao:'Suíça',iso:'ch',amarelos:2,vermelhos:0},
-  {nome:'NGolo Kanté',selecao:'França',iso:'fr',amarelos:2,vermelhos:0},
-  {nome:'Alexis Mac Allister',selecao:'Argentina',iso:'ar',amarelos:2,vermelhos:0},
-];
-const MOCK_GOLS_RODADA=[
-  {rodada:'Grupos R1',jogos:12,gols:28},
-  {rodada:'Grupos R2',jogos:12,gols:31},
-  {rodada:'Grupos R3',jogos:12,gols:24},
-  {rodada:'16-avos',jogos:16,gols:38},
-  {rodada:'Oitavas',jogos:8,gols:19},
-];
-const MOCK_TOP_TEAMS=[
-  {time:'Brasil',iso:'br',gols:11,sofridos:2,vitorias:4},
-  {time:'França',iso:'fr',gols:10,sofridos:3,vitorias:4},
-  {time:'Argentina',iso:'ar',gols:9,sofridos:2,vitorias:4},
-  {time:'Alemanha',iso:'de',gols:8,sofridos:4,vitorias:3},
-  {time:'Inglaterra',iso:'gb-eng',gols:7,sofridos:3,vitorias:3},
-];
-const MOCK_SUMMARY={jogos:60,gols:152,media:2.53,cartAmr:88,cartVrm:4,maisPlacar:'2×1',penaltis:8};
-const MOCK_LAST_MATCH={
-  t1:'Brasil',i1:'br',g1:3,t2:'Alemanha',i2:'de',g2:1,
-  stats:[
-    {lbl:'Posse de bola',home:62,away:38,unit:'%'},
-    {lbl:'Finalizações',home:14,away:9,unit:''},
-    {lbl:'No gol',home:6,away:3,unit:''},
-    {lbl:'Escanteios',home:7,away:5,unit:''},
-    {lbl:'Faltas',home:10,away:13,unit:''},
-    {lbl:'Passes certos',home:87,away:78,unit:'%'},
-    {lbl:'Defesas',home:3,away:5,unit:''},
-  ]
-};
 
 function renderStats(){
   const page=document.getElementById('page-stats');
+  const copaStarted=new Date()>=new Date('2026-06-11T19:00Z');
   const frag=document.createDocumentFragment();
 
   // Accent bar
@@ -1869,201 +1833,143 @@ function renderStats(){
 
   // Header
   const hdr=document.createElement('div');
-  hdr.style.cssText='display:flex;align-items:center;gap:10px;margin:16px 0 8px;';
+  hdr.style.cssText='display:flex;align-items:center;gap:10px;margin:16px 0 16px;';
   hdr.innerHTML=
     '<span style="font-family:Bebas Neue,sans-serif;font-size:28px;letter-spacing:2px;color:#06b6d4;">📈 Estatísticas</span>'+
-    '<div style="flex:1;height:1px;background:linear-gradient(90deg,#06b6d4,transparent);"></div>'+
-    '<span style="background:rgba(245,197,24,0.1);color:var(--gold);border:1px solid rgba(245,197,24,0.25);border-radius:20px;padding:3px 10px;font-size:10px;font-weight:700;letter-spacing:1px;">⚠️ MOCK</span>';
+    '<div style="flex:1;height:1px;background:linear-gradient(90deg,#06b6d4,transparent);"></div>';
   frag.appendChild(hdr);
 
-  // Notice banner
-  const notice=document.createElement('div');
-  notice.style.cssText='background:rgba(245,197,24,0.06);border:0.5px solid rgba(245,197,24,0.2);border-radius:10px;padding:10px 14px;font-size:12px;color:rgba(245,197,24,0.8);margin-bottom:18px;display:flex;align-items:center;gap:9px;';
-  notice.innerHTML='<span style="font-size:16px;">⚠️</span><span>Dados de demonstração — a partir de <strong>11/Jun</strong> as estatísticas reais são carregadas automaticamente via api-football.com.</span>';
-  frag.appendChild(notice);
+  if(!copaStarted){
+    // ── PRÉ-COPA: tela de aguardo ──
+    const copaStart=new Date('2026-06-11T19:00Z');
+    const days=Math.max(0,Math.ceil((copaStart-new Date())/86400000));
+    const hours=Math.floor(((copaStart-new Date())%86400000)/3600000);
 
-  // ── MOCK DATA (defined locally) ──
-  const SCORERS=[
-    {nome:'Kylian Mbappé',sel:'França',iso:'fr',gols:5,assist:3},
-    {nome:'Vini Jr.',sel:'Brasil',iso:'br',gols:4,assist:4},
-    {nome:'Lautaro Martínez',sel:'Argentina',iso:'ar',gols:4,assist:1},
-    {nome:'Harry Kane',sel:'Inglaterra',iso:'gb-eng',gols:3,assist:2},
-    {nome:'Rafael Leão',sel:'Portugal',iso:'pt',gols:3,assist:1},
-    {nome:'Erling Haaland',sel:'Noruega',iso:'no',gols:3,assist:0},
-    {nome:'Mohamed Salah',sel:'Egito',iso:'eg',gols:2,assist:3},
-    {nome:'Bukayo Saka',sel:'Inglaterra',iso:'gb-eng',gols:2,assist:2},
-  ];
-  const CARDS=[
-    {nome:'Sofyan Amrabat',sel:'Marrocos',iso:'ma',am:3,vm:0},
-    {nome:'Rodrigo Bentancur',sel:'Uruguai',iso:'uy',am:2,vm:1},
-    {nome:'Granit Xhaka',sel:'Suíça',iso:'ch',am:2,vm:0},
-    {nome:'Alexis Mac Allister',sel:'Argentina',iso:'ar',am:2,vm:0},
-    {nome:'Casemiro',sel:'Brasil',iso:'br',am:1,vm:0},
-  ];
-  const TEAMS=[
-    {t:'Brasil',iso:'br',gols:11,sofridos:2,posse:64,chutes:72,defesas:8},
-    {t:'França',iso:'fr',gols:10,sofridos:3,posse:58,chutes:65,defesas:11},
-    {t:'Argentina',iso:'ar',gols:9,sofridos:2,posse:55,chutes:61,defesas:9},
-    {t:'Alemanha',iso:'de',gols:8,sofridos:4,posse:61,chutes:58,defesas:14},
-    {t:'Inglaterra',iso:'gb-eng',gols:7,sofridos:3,posse:56,chutes:52,defesas:12},
-  ];
-  const FASES=[
-    {r:'Grupos R1',j:12,g:28},{r:'Grupos R2',j:12,g:31},
-    {r:'Grupos R3',j:12,g:24},{r:'16-avos',j:16,g:38},{r:'Oitavas',j:8,g:19},
-  ];
-  const SUMMARY={jogos:60,gols:152,media:2.53,am:88,vm:4,placar:'2×1',pen:8,semGol:6};
+    const waiting=document.createElement('div');
+    waiting.style.cssText='text-align:center;padding:40px 20px;';
+    waiting.innerHTML=
+      '<div style="font-size:72px;margin-bottom:16px;filter:drop-shadow(0 0 20px rgba(6,182,212,0.4));">📊</div>'+
+      '<div style="font-family:Bebas Neue,sans-serif;font-size:32px;letter-spacing:2px;color:#06b6d4;margin-bottom:8px;">Disponível em breve</div>'+
+      '<div style="font-size:14px;color:var(--muted);margin-bottom:28px;">As estatísticas serão atualizadas automaticamente após cada jogo encerrado, a partir do início da Copa.</div>'+
+      '<div style="display:inline-flex;gap:12px;background:var(--s1);border:0.5px solid rgba(6,182,212,0.2);border-radius:16px;padding:20px 32px;margin-bottom:32px;">'+
+        '<div style="text-align:center;"><div style="font-family:Bebas Neue,sans-serif;font-size:48px;color:#06b6d4;line-height:1;" id="stats-days">'+days+'</div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:4px;">dias</div></div>'+
+        '<div style="font-family:Bebas Neue,sans-serif;font-size:48px;color:var(--muted2);line-height:1;padding-top:0;">:</div>'+
+        '<div style="text-align:center;"><div style="font-family:Bebas Neue,sans-serif;font-size:48px;color:#06b6d4;line-height:1;" id="stats-hours">'+String(hours).padStart(2,"0")+'</div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:4px;">horas</div></div>'+
+      '</div>';
 
-  // Helper: flag img
-  function mkFlag(iso,sel,w=28,h=21){
-    const img=document.createElement('img');
-    img.style.cssText='width:'+w+'px;height:'+h+'px;border-radius:3px;object-fit:cover;flex-shrink:0;';
-    img.src='https://flagcdn.com/'+w+'x'+h+'/'+iso.replace('gb-sct','gb').replace('gb-eng','gb')+'.png';
-    img.onerror=function(){const s=document.createElement('span');s.style.fontSize=(w*0.65)+'px';s.textContent=FLAG_EMOJI[sel]||'🏳️';this.replaceWith(s);};
-    return img;
+    // What will be available
+    const preview=document.createElement('div');
+    preview.style.cssText='max-width:600px;margin:0 auto;';
+    preview.innerHTML='<div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:14px;">O que estará disponível</div>';
+    const items=[
+      ['⚽','Artilheiros','Gols e assistências por jogador em tempo real'],
+      ['🟨','Cartões','Ranking de cartões amarelos e vermelhos por jogador'],
+      ['⚡','Top Ataque','Seleções com mais gols marcados'],
+      ['🛡️','Top Defesa','Seleções com menos gols sofridos'],
+      ['🧤','Goleiros','Mais defesas e menos gols sofridos'],
+      ['📊','Posse de Bola','Média de posse por seleção'],
+      ['📊','Gols por Fase','Gols marcados em cada fase do torneio'],
+      ['🎮','Stats por Jogo','Ao clicar em um jogo encerrado: eventos, escalações e estatísticas detalhadas'],
+    ];
+    const grid=document.createElement('div');
+    grid.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;';
+    items.forEach(([icon,title,desc])=>{
+      const card=document.createElement('div');
+      card.style.cssText='background:var(--s1);border:0.5px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;align-items:flex-start;gap:10px;text-align:left;';
+      card.innerHTML=
+        '<span style="font-size:22px;flex-shrink:0;">'+icon+'</span>'+
+        '<div><div style="font-size:13px;font-weight:700;margin-bottom:2px;">'+title+'</div>'+
+        '<div style="font-size:11px;color:var(--muted);">'+desc+'</div></div>';
+      grid.appendChild(card);
+    });
+    preview.appendChild(grid);
+    waiting.appendChild(preview);
+    frag.appendChild(waiting);
+
+    // Start countdown
+    setTimeout(()=>{
+      const dEl=document.getElementById('stats-days');
+      const hEl=document.getElementById('stats-hours');
+      if(!dEl||!hEl)return;
+      setInterval(()=>{
+        const diff=new Date('2026-06-11T19:00Z')-new Date();
+        if(diff<=0){dEl.textContent='0';hEl.textContent='00';return;}
+        dEl.textContent=Math.floor(diff/86400000);
+        hEl.textContent=String(Math.floor((diff%86400000)/3600000)).padStart(2,'0');
+      },60000);
+    },100);
+
+  } else {
+    // ── COPA EM ANDAMENTO: mostrar stats reais (ou placeholder) ──
+    const live=document.createElement('div');
+    live.style.cssText='text-align:center;padding:40px 20px;';
+    live.innerHTML=
+      '<div style="font-size:48px;margin-bottom:12px;">🔄</div>'+
+      '<div style="font-size:16px;font-weight:700;margin-bottom:8px;">Carregando estatísticas...</div>'+
+      '<div style="font-size:13px;color:var(--muted);">Conectando à api-football.com</div>';
+    frag.appendChild(live);
+    // TODO: fetch real stats from API
   }
 
-  // Helper: bar chart row
-  function mkBar(lbl,val,max,color,unit,isBR){
-    const row=document.createElement('div');row.className='gols-rodada-row';
-    if(isBR)row.style.background='rgba(0,166,81,0.04)';
-    row.innerHTML=
-      '<span style="font-size:12px;font-weight:600;min-width:100px;'+(isBR?'color:var(--gold);':'')+'">'+lbl+'</span>'+
-      '<div class="gols-rodada-bar"><div class="gols-rodada-fill" style="width:'+Math.round((val/max)*100)+'%;background:'+color+';"></div></div>'+
-      '<span class="gols-rodada-val" style="color:'+color+';">'+val+(unit||'')+'</span>';
-    return row;
-  }
-
-  // Helper: section card
-  function mkCard(titleHTML){
-    const c=document.createElement('div');c.className='stats-card';
-    const h=document.createElement('div');h.className='stats-card-hdr';
-    h.innerHTML='<span class="stats-card-title">'+titleHTML+'</span>';
-    c.appendChild(h);return c;
-  }
-
-  // ── RESUMO ──
-  const c0=mkCard('<span style="color:#06b6d4;">🌍 Resumo do Torneio</span>');
-  const sg=document.createElement('div');sg.className='stats-summary-grid';
-  [[SUMMARY.jogos,'Jogos','var(--ok)'],[SUMMARY.gols,'Gols','#FFDF00'],[SUMMARY.media,'Média/jogo','#06b6d4'],
-   [SUMMARY.am+'🟨','Amarelos','var(--gold)'],[SUMMARY.vm+'🟥','Vermelhos','var(--red)'],
-   [SUMMARY.placar,'Placar + comum','var(--blue)'],[SUMMARY.pen,'Pênaltis','#a78bfa'],[SUMMARY.semGol,'Sem gols','var(--muted)']
-  ].forEach(([n,l,c])=>{
-    const i=document.createElement('div');i.className='ss-item';
-    i.innerHTML='<div class="ss-n" style="color:'+c+';">'+n+'</div><div class="ss-l">'+l+'</div>';
-    sg.appendChild(i);
-  });
-  c0.appendChild(sg);c0.style.marginBottom='16px';frag.appendChild(c0);
-
-  const grid=document.createElement('div');grid.className='stats-grid';
-
-  // ── ARTILHEIROS ──
-  const c1=mkCard('<span style="color:var(--ok);">⚽ Artilheiros</span><span style="font-size:10px;color:var(--muted);margin-left:auto;display:flex;gap:16px;text-transform:uppercase;letter-spacing:.5px;"><span>Gols</span><span>Assist</span></span>');
-  SCORERS.forEach((p,i)=>{
-    const isBR=p.sel==='Brasil';
-    const row=document.createElement('div');row.className='scorer-row';
-    if(isBR)row.style.background='rgba(0,166,81,0.04)';
-    const rank=document.createElement('div');rank.className='scorer-rank scorer-rank-'+(i+1);rank.textContent=i+1;
-    const info=document.createElement('div');info.className='scorer-info';
-    info.innerHTML='<div class="scorer-name">'+(isBR?'⭐ ':'')+p.nome+'</div><div class="scorer-team">'+p.sel+'</div>';
-    const stats=document.createElement('div');stats.className='scorer-stats';
-    stats.innerHTML=
-      '<div class="stat-goals"><div class="scorer-stat-n">'+p.gols+'</div><div class="scorer-stat-l">gols</div></div>'+
-      '<div class="stat-assists"><div class="scorer-stat-n">'+p.assist+'</div><div class="scorer-stat-l">assist</div></div>';
-    row.append(rank,mkFlag(p.iso,p.sel),info,stats);c1.appendChild(row);
-  });
-  grid.appendChild(c1);
-
-  // ── CARTÕES (por jogador) ──
-  const c3=mkCard('<span style="color:var(--gold);">🟨 Mais Cartões — por Jogador</span><span style="font-size:10px;color:var(--muted);margin-left:auto;display:flex;gap:12px;"><span>🟨</span><span>🟥</span></span>');
-  CARDS.forEach((p,i)=>{
-    const isBR=p.sel==='Brasil';
-    const row=document.createElement('div');row.className='scorer-row';
-    if(isBR)row.style.background='rgba(0,166,81,0.04)';
-    const rank=document.createElement('div');rank.className='scorer-rank scorer-rank-'+(i+1);rank.textContent=i+1;
-    const info=document.createElement('div');info.className='scorer-info';
-    info.innerHTML='<div class="scorer-name">'+p.nome+'</div><div class="scorer-team">'+p.sel+'</div>';
-    const stats=document.createElement('div');stats.className='scorer-stats';
-    stats.innerHTML=
-      '<div class="stat-cards-y"><div class="scorer-stat-n">'+p.am+'</div><div class="scorer-stat-l">🟨</div></div>'+
-      '<div class="stat-cards-r"><div class="scorer-stat-n">'+p.vm+'</div><div class="scorer-stat-l">🟥</div></div>';
-    row.append(rank,mkFlag(p.iso,p.sel),info,stats);c3.appendChild(row);
-  });
-  grid.appendChild(c3);
-
-  // ── TOP ATAQUE ──
-  const c4a=mkCard('<span style="color:#a78bfa;">⚡ Top Ataque — Gols Marcados</span>');
-  const maxG=Math.max(...TEAMS.map(t=>t.gols));
-  TEAMS.slice().sort((a,b)=>b.gols-a.gols).forEach(t=>{
-    c4a.appendChild(mkBar(t.t,t.gols,maxG,'linear-gradient(90deg,#a78bfa,var(--ok))','',t.t==='Brasil'));
-  });
-  grid.appendChild(c4a);
-
-  // ── TOP DEFESA ──
-  const c4b=mkCard('<span style="color:var(--blue);">🛡️ Top Defesa — Menos Gols Sofridos</span>');
-  const maxS=Math.max(...TEAMS.map(t=>t.sofridos));
-  TEAMS.slice().sort((a,b)=>a.sofridos-b.sofridos).forEach(t=>{
-    const row=document.createElement('div');row.className='gols-rodada-row';
-    if(t.t==='Brasil')row.style.background='rgba(0,166,81,0.04)';
-    row.innerHTML=
-      '<span style="font-size:12px;font-weight:600;min-width:100px;'+(t.t==='Brasil'?'color:var(--gold);':'')+'">'+t.t+'</span>'+
-      '<div class="gols-rodada-bar"><div class="gols-rodada-fill" style="width:'+Math.round(((maxS-t.sofridos+1)/(maxS+1))*100)+'%;background:linear-gradient(90deg,var(--blue),#60a5fa);"></div></div>'+
-      '<span class="gols-rodada-val" style="color:var(--blue);">'+t.sofridos+'</span>';
-    c4b.appendChild(row);
-  });
-  grid.appendChild(c4b);
-
-  // ── DEFESAS DO GOLEIRO ──
-  const c4d=mkCard('<span style="color:var(--ok);">🧤 Goleiros — Mais Defesas</span>');
-  const maxD=Math.max(...TEAMS.map(t=>t.defesas));
-  TEAMS.slice().sort((a,b)=>b.defesas-a.defesas).forEach(t=>{
-    c4d.appendChild(mkBar(t.t,t.defesas,maxD,'linear-gradient(90deg,var(--ok),#34d399)','',t.t==='Brasil'));
-  });
-  grid.appendChild(c4d);
-
-  // ── POSSE MÉDIA ──
-  const c4c=mkCard('<span style="color:#06b6d4;">📊 Posse de Bola Média</span>');
-  TEAMS.slice().sort((a,b)=>b.posse-a.posse).forEach(t=>{
-    c4c.appendChild(mkBar(t.t,t.posse,100,'linear-gradient(90deg,#06b6d4,#0ea5e9)','%',t.t==='Brasil'));
-  });
-  grid.appendChild(c4c);
-
-  frag.appendChild(grid);
-
-  // ── GOLS POR FASE ──
-  const c5=mkCard('<span style="color:#FFDF00;">📊 Gols por Fase</span>');
-  c5.style.marginBottom='16px';
-  const maxFG=Math.max(...FASES.map(r=>r.g));
-  FASES.forEach(r=>{
-    const row=document.createElement('div');row.className='gols-rodada-row';
-    row.innerHTML=
-      '<span class="gols-rodada-label">'+r.r+'</span>'+
-      '<div class="gols-rodada-bar"><div class="gols-rodada-fill" style="width:'+Math.round((r.g/maxFG)*100)+'%;"></div></div>'+
-      '<span class="gols-rodada-val">'+r.g+'</span>'+
-      '<span style="font-size:10px;color:var(--muted);min-width:52px;text-align:right;">'+(r.g/r.j).toFixed(1)+'/jogo</span>';
-    c5.appendChild(row);
-  });
-  frag.appendChild(c5);
-
-  // ── API NOTE ──
+  // API source note
   const apiNote=document.createElement('div');
-  apiNote.style.cssText='background:rgba(6,182,212,0.05);border:0.5px solid rgba(6,182,212,0.15);border-radius:10px;padding:12px 16px;font-size:12px;color:rgba(6,182,212,0.7);display:flex;align-items:center;gap:10px;margin-bottom:16px;';
-  apiNote.innerHTML='<span style="font-size:20px;">🔌</span><div><strong>Fonte:</strong> api-football.com · Atualiza automaticamente após cada jogo.<br><span style="opacity:.7;">/players/topscorers · /fixtures/statistics · /fixtures/events · /standings</span></div>';
+  apiNote.style.cssText='background:rgba(6,182,212,0.05);border:0.5px solid rgba(6,182,212,0.15);border-radius:10px;padding:12px 16px;font-size:12px;color:rgba(6,182,212,0.7);display:flex;align-items:center;gap:10px;margin-top:24px;';
+  apiNote.innerHTML='<span style="font-size:20px;">🔌</span><div><strong>Fonte:</strong> api-football.com · Atualização automática após cada jogo encerrado.<br><span style="opacity:.7;">/players/topscorers · /fixtures/statistics · /fixtures/events · /standings</span></div>';
   frag.appendChild(apiNote);
 
   page.innerHTML='';page.appendChild(frag);
 }
 
-// ── MOCK DATA para modal de jogo encerrado ──
+function renderAdmin(){
+  const page=document.getElementById('page-admin');
+  if(!isAdmin){page.innerHTML='<div class="empty">🔒 Acesso restrito.</div>';return;}
+  const LBL={placar_exato:'Placar exato',vencedor_gols:'Vencedor + gol certo',vencedor_saldo:'Vencedor + saldo igual',empate_certo:'Empate certo',vencedor:'Só o vencedor',b_campeao:'Bônus campeão',b_vice:'Bônus vice',b_terceiro:'Bônus 3º lugar',b_artilheiro:'Bônus artilheiro',b_sede:'Bônus sede'};
+  const DSC={placar_exato:'Acertou os 2 gols',vencedor_gols:'Venceu e acertou 1 gol',vencedor_saldo:'Venceu com saldo igual',empate_certo:'Acertou o empate',vencedor:'Acertou quem ganhou',b_campeao:'Longo prazo',b_vice:'Longo prazo',b_terceiro:'Longo prazo',b_artilheiro:'Longo prazo',b_sede:'País-sede'};
+  let pr='';Object.keys(PONTOS).forEach(k=>{if(LBL[k])pr+='<div class="prow"><div><div class="plbl">'+LBL[k]+'</div><div class="pdesc">'+DSC[k]+'</div></div><input type="number" class="pinp" value="'+PONTOS[k]+'" min="0" max="999" onchange="PONTOS[\''+k+'\']=+this.value"></div>';});
+  const apiAtiva=new Date()>=new Date('2026-06-11T19:00Z');
+  const allJogos=TODOS_JOGOS.filter(j=>!RES[j.id]);
+  page.innerHTML='<div class="admin-grid"><div><div class="asec-title">🔄 Sync placares</div>'+(apiAtiva?'<div class="acard" style="border-color:rgba(74,158,255,0.2)"><div style="font-size:12px;color:var(--muted);margin-bottom:9px;">api-football.com → fallback football-data.org.</div><button class="bbtn" onclick="syncPlacares()">🔄 Buscar placares oficiais</button><div class="syncst" id="syncst">Aguardando...</div></div>':'<div class="info-box">⏳ A Copa começa em <strong>11 de junho de 2026</strong>. Sync ativa nessa data.</div>')+'</div><div><div class="asec-title">👥 Participantes</div><div class="acard"><div style="display:flex;gap:8px;margin-bottom:8px"><input class="finp" id="inp-novo" placeholder="Nome do participante" style="flex:1" onkeydown="if(event.key===\'Enter\')addPart()"><button class="gbtn" onclick="addPart()">+</button></div><div class="chips" id="chips">'+PARTS_DATA.map(p=>'<div class="chip" style="flex-direction:column;align-items:flex-start;"><div style="display:flex;align-items:center;gap:6px;width:100%;"><span style="font-weight:600;font-size:12px;">'+p.n+'</span><span class="chipx" onclick="this.parentElement.remove()">×</span></div><span style="font-size:10px;color:var(--muted);">'+p.e+' · '+p.f+' · '+p.c+'</span></div>').join('')+'</div></div></div><div><div class="asec-title">🎯 Pontuação</div><div class="acard">'+pr+'</div><button class="gbtn" style="width:100%;margin-top:8px" onclick="showToast(\'Pontuação salva! ✓\')">Salvar pontuação</button></div><div><div class="asec-title">📋 Inserir resultado</div><div class="acard"><div style="margin-bottom:10px"><label class="flbl">Jogo</label><select class="finp" id="sel-jg"><option value="">— Selecione —</option>'+allJogos.map(j=>'<option value="'+j.id+'">'+(j.t1?j.t1:j.slot1)+' × '+(j.t2?j.t2:j.slot2)+' ('+j.fase+(j.gr?' Gr.'+j.gr:'')+') · '+brtHour(j.dt)+'h</option>').join('')+'</select></div><div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><input type="number" class="finp" id="rg1" value="0" min="0" max="20" style="text-align:center;font-family:Bebas Neue,sans-serif;font-size:24px;color:var(--gold);"><span style="font-family:Bebas Neue,sans-serif;font-size:22px;color:var(--muted2);flex-shrink:0">×</span><input type="number" class="finp" id="rg2" value="0" min="0" max="20" style="text-align:center;font-family:Bebas Neue,sans-serif;font-size:24px;color:var(--gold);"></div><button class="gbtn" style="width:100%" onclick="salvarResultado()">✓ Salvar e calcular pontos</button></div></div><div><div class="asec-title">🗑️ Zona de perigo</div><button class="dbtn" onclick="if(confirm(\'Resetar tudo?\'))showToast(\'Dados resetados.\')">Resetar todos os dados</button></div></div>';
+}
+
+function addPart(){const inp=document.getElementById('inp-novo');if(!inp||!inp.value.trim())return;const chips=document.getElementById('chips');const d=document.createElement('div');d.className='chip';d.innerHTML=inp.value.trim()+'<span class="chipx" onclick="this.parentElement.remove()">×</span>';chips.appendChild(d);inp.value='';showToast('Adicionado! ✓');}
+
+async function syncPlacares(){
+  const st=document.getElementById('syncst');if(st)st.textContent='⏳ Buscando...';
+  try{const r=await fetch('https://v3.football.api-sports.io/fixtures?league=1&season=2026&status=FT',{headers:{'x-apisports-key':API_FOOTBALL}});if(!r.ok)throw new Error(r.status);const d=await r.json();const n=(d.response||[]).length;if(st)st.textContent='✓ '+n+' resultados via api-football.com';}
+  catch(e1){try{const r2=await fetch('https://api.football-data.org/v4/competitions/WC/matches?season=2026&status=FINISHED',{headers:{'X-Auth-Token':FOOTBALL_DATA}});if(!r2.ok)throw new Error(r2.status);const d2=await r2.json();const n=(d2.matches||[]).length;if(st)st.textContent='✓ '+n+' resultados via football-data.org';}catch(e2){if(st)st.textContent='Nenhuma API retornou dados ainda.';}}
+}
+
+function salvarResultado(){
+  const jid=document.getElementById('sel-jg').value;
+  if(!jid){showToast('Selecione um jogo!');return;}
+  const g1=parseInt(document.getElementById('rg1').value)||0;
+  const g2=parseInt(document.getElementById('rg2').value)||0;
+  RES[jid]={g1,g2};
+  const j=TODOS_JOGOS.find(x=>x.id===jid);
+  const nm1=j?(j.t1||j.slot1):'?';
+  const nm2=j?(j.t2||j.slot2):'?';
+  showToast(nm1+' '+g1+'×'+g2+' '+nm2+' salvo! ✓');
+  renderHeaderStats();
+  const pg=document.querySelector('.page.active');
+  if(pg){const id=pg.id.replace('page-','');if(id==='partidas')renderPartidas();else if(id==='tabela')renderTabela();else if(id==='chave')renderChave();else if(id==='ranking')renderRanking();}
+  setTimeout(()=>renderAdmin(),120);
+}
+
+
+let _mmTab='stats';
+
+
+// Mock data for match detail modal (used until real API data is available)
 const MOCK_MATCH_DETAIL={
   events:[
-    {min:12,icon:'⚽',player:'Vini Jr.',detail:'Gol · Chute no canto',team:'Brasil',type:'goal'},
-    {min:27,icon:'🟨',player:'Amrabat',detail:'Falta em Rodrygo',team:'Marrocos',type:'card-y'},
-    {min:34,icon:'⚽',player:'Rodrygo',detail:'Gol · Cabeçada',team:'Brasil',type:'goal'},
-    {min:45,icon:'⚽',player:'En-Nesyri',detail:'Gol · Pênalti',team:'Marrocos',type:'goal'},
-    {min:58,icon:'🔄',player:'Endrick',detail:'Entra · Sai Rodrygo',team:'Brasil',type:'sub'},
-    {min:71,icon:'⚽',player:'Endrick',detail:'Gol · Chute colocado',team:'Brasil',type:'goal'},
-    {min:83,icon:'🟥',player:'Mazraoui',detail:'2º amarelo',team:'Marrocos',type:'card-r'},
-    {min:90,icon:'⚽',player:'Marquinhos',detail:'Gol · Escanteio',team:'Brasil',type:'goal'},
+    {min:12,icon:'⚽',player:'Vini Jr.',detail:'Gol · Chute no canto',team:'Brasil'},
+    {min:27,icon:'🟨',player:'Amrabat',detail:'Falta em Rodrygo',team:'Marrocos'},
+    {min:34,icon:'⚽',player:'Rodrygo',detail:'Gol · Cabeçada',team:'Brasil'},
+    {min:45,icon:'⚽',player:'En-Nesyri',detail:'Gol · Pênalti',team:'Marrocos'},
+    {min:58,icon:'🔄',player:'Endrick',detail:'Entra · Sai Rodrygo',team:'Brasil'},
+    {min:71,icon:'⚽',player:'Endrick',detail:'Gol · Chute colocado',team:'Brasil'},
+    {min:83,icon:'🟥',player:'Mazraoui',detail:'2º amarelo',team:'Marrocos'},
+    {min:90,icon:'⚽',player:'Marquinhos',detail:'Gol · Escanteio',team:'Brasil'},
   ],
   stats:[
     {lbl:'Posse de bola',home:67,away:33,unit:'%'},
@@ -2108,8 +2014,6 @@ const MOCK_MATCH_DETAIL={
     ]},
   },
 };
-
-let _mmTab='stats';
 
 
 function openMatchModal(jid){
